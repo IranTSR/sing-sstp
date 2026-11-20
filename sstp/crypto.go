@@ -109,6 +109,8 @@ func (p Packet) Encode() ([]byte, error) {
 		return nil, errors.New("sstp: empty packet")
 	}
 	total := 4 + len(body)
+	// The 12-bit Length field counts this packet, so 4095 is the maximum and
+	// the payload can never exceed 4091 octets.
 	if total > 0x0fff {
 		return nil, ErrBadLength
 	}

@@ -24,7 +24,7 @@ const (
 
 type digest struct {
 	a, b, c, d uint32
-	x          [blockSize]uint32
+	x          [blockSize]byte
 	nx         int
 	length     uint64
 }
@@ -55,7 +55,7 @@ func (d *digest) Reset() {
 func (d *digest) Write(p []byte) (int, error) {
 	n := len(p)
 	d.length += uint64(n)
-	for d.nx+len(p) > blockSize {
+	for d.nx+len(p) >= blockSize {
 		lim := blockSize - d.nx
 		copy(d.x[d.nx:], p[:lim])
 		d.block(d.x[:])
@@ -75,6 +75,7 @@ func (d *digest) Sum(in []byte) []byte {
 	pad[pos] = 0x80
 	pos++
 	for pos%64 != 56 {
+		pad[pos] = 0
 		pos++
 	}
 	binary.LittleEndian.PutUint64(pad[pos:], d.length<<3)

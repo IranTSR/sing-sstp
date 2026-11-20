@@ -137,11 +137,12 @@ func TestCallConnectRequestWireFormat(t *testing.T) {
 }
 
 func TestEncodeDataPacketRespectsLengthCap(t *testing.T) {
-	if _, err := (Packet{Data: bytes.Repeat([]byte{1}, 4092)}).Encode(); err != nil {
-		t.Fatalf("4096-byte total should encode: %v", err)
+	// 4 + 4091 = 4095 is the largest total the 12-bit Length field can hold.
+	if _, err := (Packet{Data: bytes.Repeat([]byte{1}, 4091)}).Encode(); err != nil {
+		t.Fatalf("4095-byte total should encode: %v", err)
 	}
-	if _, err := (Packet{Data: bytes.Repeat([]byte{1}, 4093)}).Encode(); err == nil {
-		t.Error("4097-byte total must be rejected (12-bit length field)")
+	if _, err := (Packet{Data: bytes.Repeat([]byte{1}, 4092)}).Encode(); err == nil {
+		t.Error("4096-byte total must be rejected (12-bit length field)")
 	}
 }
 
