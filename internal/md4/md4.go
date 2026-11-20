@@ -36,11 +36,12 @@ func New() hash.Hash {
 	return &d
 }
 
-// Sum appends the current hash to b and returns the resulting slice.
+// Sum returns the MD4 digest of b. Unlike hash.Hash's Sum, it does not
+// append to the input.
 func Sum(b []byte) []byte {
 	h := New()
 	h.Write(b)
-	return h.Sum(b)
+	return h.Sum(nil)
 }
 
 func (d *digest) Size() int      { return Size }

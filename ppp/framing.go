@@ -129,6 +129,14 @@ func unstuff(raw []byte) []byte {
 	return out
 }
 
+// FCS computes the values of the 16-bit CRC of the header and information
+// fields (RFC 1662 Appendix F: CRC-16 with polynomial 0x8408 reflected, init
+// 0xFFFF, final ones complement), returning the two octets ready for the wire.
+func FCS(data []byte) [2]byte {
+	v := fcsValue(data)
+	return [2]byte{byte(v), byte(v >> 8)}
+}
+
 func fcsValue(data []byte) uint16 {
 	crc := uint16(0xFFFF)
 	for _, c := range data {
