@@ -96,6 +96,48 @@ func TestAuthenticatorResponseVector(t *testing.T) {
 // desKeyFrom56 bit order, pinned by FIPS 81's published example expressed as a
 // 56-bit key (14a7b9e9d9efe6 -> 1334577151717771 with odd parity inserted).
 func TestDESKeyExpansionVectors(t *testing.T) {
+	// RFC 2759 9.3: PasswordHash("MyPw") = FC156AF7EDCD6C0EDDE3337D427F4EAC,
+	// whose first two 7-octet groups must expand to these keys.
+	ph := unhex(t, "FC156AF7EDCD6C0EDDE3337D427F4EAC")
+	z := append(append([]byte(nil), ph...), 0, 0, 0, 0, 0)
+	want := []string{"fd0b5b5e7f6e34d9", "0e6e796737ea08fe"}
+	for i, w := range want {
+		got := hex.EncodeToString(desKeyFrom56(z[i*7 : i*7+7]))
+		if got != w {
+			t.Errorf("desKeyFrom56(group %d) = %s, want %s", i, got, w)
+		}
+	}
+}
+
+func TestDESKeysFromMSCHAPv2Vector(t *testing.T) {
+	// The MS-CHAPv2 vector's own three groups, checked through NTResponse
+	// above; here the expansion is asserted directly so a mistake in any one
+	// group is attributed.
+	ph := unhex(t, rfc2759Vector.pwh)
+	z := append(append([]byte(nil), ph...), 0, 0, 0, 0, 0)
+	want := []string{"233b77296b4c2538", "6b04297520476b69", "456b000000000000"}
+	for i, w := range want {
+		got := hex.EncodeToString(desKeyFrom56(z[i*7 : i*7+7]))
+		if got != w {
+			t.Errorf("clientPass group %d = %s, want %s", i, got, w)
+		}
+	}
+}
+
+func TestAuthenticatorResponseVector(t *testing.T) {
+	v := rfc2759Vector
+	got, err := AuthenticatorResponse(v.pass, unhex(t, v.ntRep), unhex(t, v.peer), unhex(t, v.auth), v.name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != v.authR {
+		t.Errorf("AuthenticatorResponse = %q, want %q", got, v.authR)
+	}
+}
+
+// desKeyFrom56 bit order, pinned by FIPS 81's published example expressed as a
+// 56-bit key (14a7b9e9d9efe6 -> 1334577151717771 with odd parity inserted).
+func TestDESKeyExpansionVectors(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"14a7b9e9d9efe6", "1334577151717771"},
 		{"00000000000000", "0101010101010101"},

@@ -29,7 +29,12 @@ const (
 var (
 	ErrShortFrame  = errors.New("ppp: frame too short")
 	ErrFCSMismatch = errors.New("ppp: frame check sequence mismatch")
+	ErrFlagInFrame = errors.New("ppp: flag octet inside a length-delimited frame")
 )
+
+// ErrControlUnescaped reports a frame that carries a control character the
+// peer was required to escape.
+var ErrControlUnescaped = errors.New("ppp: unescaped control character forbidden by the ACCM")
 
 // FCSMode selects the two optional framing layers of RFC 1662/1661: the 16-bit
 // FCS (MS-SSTP does not use one, because the SSTP packet carries the length and
@@ -80,6 +85,12 @@ func ApplyACCM(frame []byte, accm uint32) []byte {
 // returns the protocol field and the information octets.
 func DecodeFrame(raw []byte, f FCSMode) (proto uint16, info []byte, err error) {
 	b := unstuff(raw)
+	if len(b) == 0 {
+		return 0, nil, ErrShortFrame
+	}
+	if err := checkAccmReceive(b, f.Accm); err != nil {
+		return 0, nil, err
+	}
 	// Tolerate an outer pair of flag octets: some stacks keep them even
 	// though the SSTP framing makes them redundant.
 	if len(b) > 0 && b[0] == flagField {
@@ -135,6 +146,28 @@ func unstuff(raw []byte) []byte {
 func FCS(data []byte) [2]byte {
 	v := fcsValue(data)
 	return [2]byte{byte(v), byte(v >> 8)}
+}
+
+// checkAccmReceive enforces RFC 1662 section B.4.1.3: a received frame must
+// not contain an unescaped control character whose ACCM bit the peer
+// negotiated. An escaped 0x7E is likewise illegal on the wire inside SSTP,
+// because a flag octet would delimit a frame the transport has already
+// delimited by length (RFC 1662 section B.2).
+func checkAccmReceive(b []byte, accm uint32) error {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if c == escapeField {
+			i++ // skip the escaped octet: it was never a bare control char
+			continue
+		}
+		if c == flagField {
+			return ErrFlagInFrame
+		}
+		if c < 0x20 && accm&(1<<c) != 0 {
+			return ErrControlUnescaped
+		}
+	}
+	return nil
 }
 
 func fcsValue(data []byte) uint16 {
